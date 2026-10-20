@@ -1,0 +1,36 @@
+name: Priv consumer
+on:
+  workflow_run:
+    workflows: ["Collect"]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  post-menu:
+    name: Resolve target from artifact
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Download PR number artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pr-number
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve pull request number
+        id: resolve-pr
+        run: |
+          echo "number=$(cat pr_number.txt)" >> "$GITHUB_OUTPUT"
+      - name: Show what the privileged job would act on
+        env:
+          PULL_REQUEST_NUMBER: ${{ steps.resolve-pr.outputs.number }}
+        run: |
+          echo "TRIGGERING_HEAD_REPO=${{ github.event.workflow_run.head_repository.full_name }}"
+          echo "TRIGGERING_EVENT=${{ github.event.workflow_run.event }}"
+          echo "RESOLVED_TARGET=[$PULL_REQUEST_NUMBER]"
+          echo "TOKEN_PERMS=issues:write pull-requests:write"
